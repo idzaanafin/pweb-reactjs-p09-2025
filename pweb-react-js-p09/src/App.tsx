@@ -10,19 +10,17 @@ import TransactionDetail from "./pages/transactions/TransactionDetail";
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Login />} />
+      <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
-
-      <Route element={<MainLayout />}>
-        {/* Books */}
-        <Route path="/books" element={<Books />} />
-        <Route path="/books/:id" element={<BookDetail />} />
-
-        {/* Transactions */}
-        <Route path="/transactions" element={<Transactions />} />
-        <Route path="/transactions/:id" element={<TransactionDetail />} />
+      <Route path="/" element={<MainLayout />}>
+        <Route index element={<h2>Welcome to My App</h2>} />
+        <Route path="books" element={<Books />} />
+        <Route path="books/:id" element={<BookDetail />} />
+        <Route path="transactions" element={<Transactions />} />
+        <Route path="transactions/:id" element={<TransactionDetail />} />
       </Route>
     </Routes>
+
   );
 }
 
