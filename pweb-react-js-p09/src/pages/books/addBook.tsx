@@ -19,12 +19,10 @@ export default function AddBook() {
     writer: "",
     publisher: "",
     price: "",
-    stock: "",
-    genreId: "",
-    isbn: "",
+    stock_quantity: "",
+    genre_id: "",
     description: "",
     publication_year: "",
-    condition: "",
   });
 
   // Ambil daftar genre
@@ -33,24 +31,22 @@ export default function AddBook() {
       try {
         setLoadingGenres(true);
         const token = getToken();
-        const res = await axios.get(`${API}/genres`, {
+        const res = await axios.get(`${API}/genre`, {
           headers: { Authorization: `Bearer ${token}` },
+          withCredentials: true,
         });
 
-        const data = res.data;
-        const mapped: Genre[] = (Array.isArray(data) ? data : []).map((g: any) => ({
-          id: String(g.id ?? g.genreId ?? ""),
-          name: String(g.name ?? g.genreName ?? "-"),
-        }));
-        setGenres(mapped);
+        const data = Array.isArray(res.data) ? res.data : [];
+
+        setGenres(
+          data.map((g: any) => ({
+            id: String(g.id),
+            name: String(g.name),
+          }))
+        );
       } catch (err) {
         console.error("⚠️ Gagal fetch genres:", err);
-        // fallback
-        setGenres([
-          { id: "b34b1576-9613-4461-84e1-cbeea61df1db", name: "Technology" },
-          { id: "11111111-1111-1111-1111-111111111111", name: "Fiction" },
-          { id: "22222222-2222-2222-2222-222222222222", name: "History" },
-        ]);
+        setGenres([]);
       } finally {
         setLoadingGenres(false);
       }
@@ -67,20 +63,20 @@ export default function AddBook() {
       alert("Title & Writer wajib diisi.");
       return;
     }
-    if (!form.genreId) {
+    if (!form.genre_id) {
       alert("Genre wajib dipilih.");
       return;
     }
 
     const priceNum = Number(form.price);
-    const stockNum = Number(form.stock);
+    const stockNum = Number(form.stock_quantity);
 
     if (isNaN(priceNum) || priceNum < 0) {
       alert("Harga tidak boleh kosong atau negatif!");
       return;
     }
     if (!Number.isInteger(stockNum) || stockNum < 0) {
-      alert("Stok harus berupa bilangan bulat dan tidak boleh negatif!");
+      alert("Stock harus berupa bilangan bulat dan tidak boleh negatif!");
       return;
     }
 
@@ -89,34 +85,30 @@ export default function AddBook() {
       writer: form.writer,
       publisher: form.publisher || undefined,
       price: priceNum,
-      stock_quantity: stockNum, // ⚠️ sesuaikan dengan backend kamu
-      genre_id: form.genreId,
-      isbn: form.isbn || undefined,
+      stock_quantity: stockNum,
+      genre_id: form.genre_id,
       description: form.description || undefined,
       publication_year: form.publication_year
         ? Number(form.publication_year)
         : undefined,
-      condition: form.condition || undefined,
     };
 
     try {
       setSubmitting(true);
-      const token = getToken();
       await axios.post(`${API}/books`, payload, {
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${getToken()}`,
+          withCredentials: true,
         },
       });
+
       alert("✅ Buku berhasil ditambahkan!");
       navigate("/books");
+
     } catch (err: any) {
       console.error("❌ Gagal menambahkan buku:", err);
-      const msg =
-        err.response?.data?.message ||
-        err.message ||
-        "Terjadi kesalahan saat menyimpan buku.";
-      alert(msg);
+      alert(err.response?.data?.message || "Terjadi kesalahan.");
     } finally {
       setSubmitting(false);
     }
@@ -142,42 +134,26 @@ export default function AddBook() {
 
         <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <Input label="Price" type="number" value={form.price} onChange={(v) => setForm({ ...form, price: v })} />
-          <Input label="Stock" type="number" value={form.stock} onChange={(v) => setForm({ ...form, stock: v })} />
+          <Input label="Stock" type="number" value={form.stock_quantity} onChange={(v) => setForm({ ...form, stock_quantity: v })} />
         </div>
 
-        <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <div style={{ display: "grid", gap: 6 }}>
-            <label className="subtle">Genre</label>
-            <select
-              className="select"
-              value={form.genreId}
-              onChange={(e) => setForm({ ...form, genreId: e.target.value })}
-              disabled={loadingGenres}
-            >
-              <option value="">{loadingGenres ? "Loading..." : "-"}</option>
-              {genres.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div style={{ display: "grid", gap: 6 }}>
-            <label className="subtle">Condition</label>
-            <select
-              className="select"
-              value={form.condition}
-              onChange={(e) => setForm({ ...form, condition: e.target.value })}
-            >
-              <option value="">-</option>
-              <option value="new">New</option>
-              <option value="used">Used</option>
-            </select>
-          </div>
+        <div style={{ display: "grid", gap: 6 }}>
+          <label className="subtle">Genre</label>
+          <select
+            className="select"
+            value={form.genre_id}
+            onChange={(e) => setForm({ ...form, genre_id: e.target.value })}
+            disabled={loadingGenres}
+          >
+            <option value="">{loadingGenres ? "Loading..." : "-"}</option>
+            {genres.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </select>
         </div>
 
-        <Input label="ISBN" value={form.isbn} onChange={(v) => setForm({ ...form, isbn: v })} />
         <Input
           label="Publication Year"
           type="number"
@@ -196,14 +172,8 @@ export default function AddBook() {
         </div>
 
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 6 }}>
-          <Link to="/books" className="btn btn-outline">
-            Cancel
-          </Link>
-          <button
-            type="submit"
-            className="btn btn-primary"
-            disabled={submitting || loadingGenres}
-          >
+          <Link to="/books" className="btn btn-outline">Cancel</Link>
+          <button type="submit" className="btn btn-primary" disabled={submitting || loadingGenres}>
             {submitting ? "Saving..." : "Save"}
           </button>
         </div>

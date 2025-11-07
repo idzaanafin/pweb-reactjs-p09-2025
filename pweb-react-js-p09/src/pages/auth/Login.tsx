@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
@@ -17,7 +17,6 @@ export default function Login() {
 
     try {
       setLoading(true); 
-
       const res = await axios.post(`${API}/auth/login`, {
         email,
         password,
@@ -43,7 +42,6 @@ export default function Login() {
       <div className="bg-white p-8 rounded-xl shadow-md w-full max-w-sm">
         <h1 className="text-2xl font-semibold text-center mb-6">Login</h1>
 
-        {/* Message */}
         {message && (
           <div
             className={`p-3 mb-4 rounded text-sm ${
@@ -89,7 +87,7 @@ export default function Login() {
             className={`w-full py-2 rounded-lg font-medium transition ${
               loading
                 ? "bg-gray-400 text-black cursor-not-allowed"
-                : "bg-black text-black hover:bg-gray-800"
+                : "bg-black text-white hover:bg-gray-800"
             }`}
           >
             {loading ? "Loading..." : "Log In"}
