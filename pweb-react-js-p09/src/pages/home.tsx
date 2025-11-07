@@ -7,7 +7,7 @@ export default function Home() {
       <section className="card pad" style={{ padding: 24, display: "grid", gap: 14 }}>
         <h1 className="page-title" style={{ margin: 0 }}>IT Literature Shop</h1>
         <p style={{ color: "var(--text-700)", maxWidth: 720, lineHeight: 1.6 }}>
-          Kelola koleksi buku kampus dengan mudah. Cari, filter, urutkan, dan pantau transaksi —
+          Kelola koleksi buku dengan mudah. Cari, filter, urutkan, dan pantau transaksi —
           semua dalam satu dashboard yang simple & responsif.
         </p>
 
