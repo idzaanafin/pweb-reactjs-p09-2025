@@ -176,3 +176,155 @@ a.link:hover{ text-decoration:underline; }
 #root{ width:100%; margin:0; padding:0; text-align:left; }
 .logo{ height:6em; padding:1.5em; will-change: filter; transition: filter 300ms; }
 .read-the-docs{ color:#888; }
+
+/* ===============================
+   MOBILE RESPONSIVE (HP)
+   Tempel di PALING BAWAH file ini
+   =============================== */
+
+/* —— Phone umum (≤ 640px) ——————————— */
+@media (max-width: 640px){
+  /* scale dasar biar konten mengecil proporsional */
+  html { font-size: 12px; }  /* default 16 → 15 */
+
+  /* container & section spacing */
+  .container{ padding: 18px 14px 28px !important; }
+  .toolbar{ flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
+
+  /* judul & teks */
+  .page-title{ font-size: 22px !important; margin: 6px 0 14px !important; }
+  h1{ font-size: 22px; line-height: 1.2; }
+  h2{ font-size: 18px; }
+  h3{ font-size: 16px; }
+
+  /* kartu/panel */
+  .card{ border-radius: 12px !important; }
+  .card.pad{ padding: 12px !important; }
+
+  /* input/select/textarea */
+  .input, .select, .textarea{
+    font-size: 14px !important;
+    padding: 10px 12px !important;
+    border-radius: 10px !important;
+  }
+
+  /* tombol */
+  .btn{ font-size: 14px !important; padding: 9px 12px !important; border-radius: 10px !important; }
+  .btn-primary, .btn-dark{ font-weight: 600; }
+  .pagination{ justify-content: center; gap: 10px; }
+  .pagination .btn{ min-width: 72px; }
+
+  /* grid filter → 1 kolom agar hemat tinggi */
+  .grid.filters{ grid-template-columns: 1fr !important; gap: 10px !important; }
+
+  /* tabel lebih kompak dan mulus saat discroll di HP */
+  .table th, .table td{ padding: 10px 12px !important; }
+  .table-wrap{ border-radius: 12px !important; -webkit-overflow-scrolling: touch; }
+
+  /* footer lebih rapat */
+  .footer{ padding: 10px 12px !important; font-size: 13px !important; }
+
+  /* optional: navbar custom kamu (kalau pakai .site-nav) */
+  .site-nav{ padding: 10px 14px !important; }
+}
+
+/* —— Phone kecil (≤ 480px) ————————— */
+@media (max-width: 480px){
+  /* skala lebih kecil lagi */
+  html { font-size: 11px; } /* 16 → 14 */
+
+  /* judul & tombol tambah kecil */
+  .page-title{ font-size: 20px !important; }
+  h1{ font-size: 20px; }
+  .btn{ font-size: 13px !important; padding: 8px 11px !important; }
+
+  /* input/select tambah ringkas */
+  .input, .select, .textarea{ font-size: 11px !important; padding: 9px 11px !important; }
+
+  /* kartu */
+  .card.pad{ padding: 10px !important; }
+
+  /* jika ada brand di navbar, kecilkan juga (opsional, hanya aktif bila class ada) */
+  .navbar-brand{ font-size: 20px !important; line-height: 1.15 !important; }
+}
+
+/* —— Helper opsional ———————— */
+/* sembunyikan/ tampilkan elemen khusus HP/desktop tanpa ubah JSX */
+.hide-mobile{ display: initial; }
+.show-mobile{ display: none; }
+@media (max-width: 640px){
+  .hide-mobile{ display: none !important; }
+  .show-mobile{ display: initial !important; }
+}
+
+/* =========================
+   MOBILE PATCH (≤ 640px)
+   ========================= */
+@media (max-width: 640px){
+  /* cegah horizontal scroll */
+  html, body { overflow-x: hidden; }
+  main, .container, .table-wrap { overflow-x: clip; }
+
+  /* padding konten lebih rapat */
+  main > div { padding-left: 12px !important; padding-right: 12px !important; }
+
+  /* --- BOX PERTAMA (hero) lebih kecil & center --- */
+  /* card pertama yang langsung berada di wrapper konten */
+  main > div > .card:first-of-type {
+    transform: scale(0.9);
+    transform-origin: top center;
+    max-width: 92%;
+    margin: 0 auto 12px auto;
+    border-radius: 12px;
+  }
+  /* tombol di dalam hero lebih kecil */
+  main > div > .card:first-of-type .btn {
+    font-size: 13px !important;
+    padding: 8px 11px !important;
+    border-radius: 10px !important;
+  }
+
+  /* --- TIGA BOX DI URUTAN KEDUA tidak overflow --- */
+  /* kalau dibungkus grid/flex, paksa jadi 1 kolom */
+  main > div .grid:not(.filters) { 
+    grid-template-columns: 1fr !important; 
+    gap: 12px !important; 
+  }
+  main > div .grid:not(.filters) > .card,
+  main > div .grid:not(.filters) > * > .card {
+    width: 94% !important;
+    margin: 0 auto !important;
+  }
+
+  /* fallback: kalau 3 card berdiri berurutan setelah hero */
+  main > div > .card:nth-of-type(2),
+  main > div > .card:nth-of-type(3),
+  main > div > .card:nth-of-type(4){
+    width: 94%;
+    margin: 0 auto 12px auto;
+    border-radius: 12px;
+  }
+
+  /* kontrol & teks lebih kecil (umum) */
+  .page-title{ font-size: 20px !important; margin: 6px 0 12px !important; }
+  .btn{ font-size: 13.5px !important; padding: 9px 12px !important; border-radius: 10px !important; }
+  .input, .select, .textarea{ font-size: 13.5px !important; padding: 9px 11px !important; border-radius: 10px !important; }
+  .card.pad{ padding: 12px !important; }
+  .table th, .table td{ padding: 10px 12px !important; }
+}
+
+/* =========================
+   VERY SMALL PHONES (≤ 480px)
+   ========================= */
+@media (max-width: 480px){
+  main > div > .card:first-of-type { transform: scale(0.88); max-width: 90%; }
+  main > div .grid:not(.filters) > .card,
+  main > div .grid:not(.filters) > * > .card,
+  main > div > .card:nth-of-type(2),
+  main > div > .card:nth-of-type(3),
+  main > div > .card:nth-of-type(4){
+    width: 92% !important;
+  }
+  .btn{ font-size: 13px !important; padding: 8px 11px !important; }
+  .input, .select, .textarea{ font-size: 13px !important; padding: 8px 10px !important; }
+}
