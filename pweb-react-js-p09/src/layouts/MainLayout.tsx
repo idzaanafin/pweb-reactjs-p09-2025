@@ -43,20 +43,24 @@ export default function MainLayout() {
     navigate("/login");
   };
 
+  // ukuran item menu dibuat lebih kecil di mobile, normal di md+
   const navItem =
-    "px-3 py-2 rounded-md transition hover:bg-white/10 hover:translate-y-[-1px]";
+    "px-3 py-2 rounded-md transition hover:bg-white/10 hover:translate-y-[-1px] text-[15px] md:text-base";
   const activeClass = ({ isActive }: { isActive: boolean }) =>
-    `${navItem} ${isActive ? "bg-white/15 font-semibold" : "text-white/90"}`;
+    `${navItem} ${isActive ? "bg-white/20 font-semibold" : "text-white/90"}`;
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 to-slate-100">
       {/* NAVBAR */}
-      <nav className="sticky top-0 z-40 w-full border-b border-white/10 shadow-[0_6px_24px_rgba(2,6,23,.08)] bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white/95">
-        <div className="max-w-[1120px] mx-auto px-4 lg:px-6 py-4 flex items-center justify-between">
+      <nav
+        role="navigation"
+        className="sticky top-0 z-40 w-full shadow-md bg-[#001F3F] text-white pt-[env(safe-area-inset-top)]"
+      >
+        <div className="max-w-[1120px] mx-auto px-3 md:px-6 py-3 md:py-4 flex items-center justify-between">
           {/* brand */}
           <Link
             to="/"
-            className="font-extrabold tracking-tight text-3xl md:text-4xl text-white"
+            className="font-extrabold tracking-tight text-xl sm:text-2xl md:text-4xl text-white hover:scale-[1.03] md:hover:scale-105 transition-transform duration-200"
           >
             IT Literature Shop
           </Link>
@@ -67,13 +71,12 @@ export default function MainLayout() {
             <li><NavLink to="/books" className={activeClass}>Books</NavLink></li>
             <li><NavLink to="/transactions" className={activeClass}>Transactions</NavLink></li>
             <li className="mx-2 h-6 w-px bg-white/15" />
-
             {isAuthed ? (
               <li className="flex items-center gap-2">
                 <span className="text-white/85">{displayName}</span>
                 <button
                   onClick={handleLogout}
-                  className="px-4 py-2 rounded-md bg-rose-500/90 hover:bg-rose-500 transition shadow-sm text-sm font-medium"
+                  className="px-4 py-2 rounded-md bg-rose-500 hover:bg-rose-600 transition shadow-sm text-sm font-semibold"
                 >
                   Logout
                 </button>
@@ -96,7 +99,7 @@ export default function MainLayout() {
 
           {/* hamburger mobile */}
           <button
-            className="md:hidden text-3xl px-2 py-1 rounded-md hover:bg-white/10"
+            className="md:hidden text-2xl px-2 py-1 rounded-md hover:bg-white/10 active:scale-95"
             onClick={() => setOpen(!open)}
           >
             ☰
@@ -110,7 +113,7 @@ export default function MainLayout() {
             <li><NavLink to="/books" className={activeClass} onClick={() => setOpen(false)}>Books</NavLink></li>
             <li><NavLink to="/transactions" className={activeClass} onClick={() => setOpen(false)}>Transactions</NavLink></li>
 
-            <div className="h-[1px] w-full bg-white/10 my-1" />
+            <div className="h-px w-full bg-white/10 my-1" />
 
             {isAuthed ? (
               <li>
@@ -119,7 +122,7 @@ export default function MainLayout() {
                     setOpen(false);
                     handleLogout();
                   }}
-                  className="w-full px-4 py-2 rounded-md bg-rose-500/90 hover:bg-rose-500 transition text-left"
+                  className="w-full px-3 py-2 rounded-md bg-rose-500 hover:bg-rose-600 transition text-left font-semibold"
                 >
                   Logout
                 </button>
@@ -136,15 +139,15 @@ export default function MainLayout() {
 
       {/* CONTENT */}
       <main className="flex-1 w-full">
-        <div className="max-w-[1120px] mx-auto px-4 lg:px-6 py-8">
+        <div className="max-w-[1120px] mx-auto px-3 md:px-6 py-6 md:py-8">
           <Outlet />
         </div>
       </main>
 
       {/* FOOTER */}
-      <footer className="w-full border-t border-slate-200 bg-white/90 backdrop-blur">
-        <div className="max-w-[1120px] mx-auto px-4 lg:px-6 py-6 flex flex-col md:flex-row items-center justify-between gap-3">
-          <div className="text-slate-600 text-base font-medium">
+      <footer className="w-full border-t border-[#00264D] bg-[#001F3F] text-white pb-[env(safe-area-inset-bottom)]">
+        <div className="max-w-[1120px] mx-auto px-3 md:px-6 py-4 md:py-6 flex flex-col md:flex-row items-center justify-between gap-2 md:gap-3">
+          <div className="text-[13px] md:text-base font-medium">
             © {new Date().getFullYear()} IT Literature Shop
           </div>
         </div>
