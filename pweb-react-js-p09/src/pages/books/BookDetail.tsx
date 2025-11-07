@@ -33,7 +33,7 @@ export default function BookDetail() {
           headers: { Authorization: `Bearer ${getToken()}` },
         });
 
-        const b = res.data;
+        const b = res.data.data;
 
         const mapped: BookDetail = {
           id: String(b.id),

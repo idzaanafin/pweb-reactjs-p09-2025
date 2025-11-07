@@ -47,7 +47,7 @@ export default function BooksList() {
         const res = await axios.get(`${API}/genre`, {
           headers: { Authorization: `Bearer ${getToken()}` },
         });
-        const data = Array.isArray(res.data) ? res.data : [];
+        const data = Array.isArray(res.data.data) ? res.data.data : [];
         setGenres(
           data.map((g: any) => ({
             id: String(g.id),
@@ -80,7 +80,7 @@ export default function BooksList() {
         withCredentials: true,
       });
 
-      const apiData = res.data?.items ?? [];
+      const apiData = res.data.data?.items ?? [];
 
       setBooks(
         apiData.map((b: any) => ({
@@ -97,7 +97,7 @@ export default function BooksList() {
         }))
       );
 
-      setTotalPages(res.data?.pagination?.total_pages || 1);
+      setTotalPages(res.data.data?.pagination?.total_pages || 1);
     } catch (e: any) {
       setErr(e?.response?.data?.message || e?.message || "Network Error");
     } finally {

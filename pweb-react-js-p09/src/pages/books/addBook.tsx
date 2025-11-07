@@ -36,7 +36,7 @@ export default function AddBook() {
           withCredentials: true,
         });
 
-        const data = Array.isArray(res.data) ? res.data : [];
+        const data = Array.isArray(res.data.data) ? res.data.data : [];        
 
         setGenres(
           data.map((g: any) => ({
