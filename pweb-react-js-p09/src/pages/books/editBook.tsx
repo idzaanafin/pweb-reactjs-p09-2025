@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import axios from "axios";
 
 type Genre = { id: string; name: string };
 
@@ -9,18 +10,18 @@ type FormState = {
   publisher: string;
   price: string;
   stock: string;
-  genreId: string;       // UUID genre
+  genreId: string; // UUID genre
   isbn: string;
   description: string;
   publication_year: string;
-  condition: string;     // "new" | "used" | ""
+  condition: string; // "new" | "used" | ""
 };
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8080";
 const getToken = () => localStorage.getItem("token") || "";
 const authHeaders = () => ({
-  "Content-Type": "application/json",
   Authorization: `Bearer ${getToken()}`,
+  "Content-Type": "application/json",
 });
 
 export default function EditBook() {
@@ -52,53 +53,56 @@ export default function EditBook() {
       try {
         setLoading(true);
         setErr(null);
-        const res = await fetch(`${API}/books/${id}`, {
-          headers: { Authorization: `Bearer ${getToken()}` },
+
+        const res = await axios.get(`${API}/books/${id}`, {
+          headers: authHeaders(),
         });
-        if (!res.ok) {
-          setErr(res.status === 404 ? "Book not found" : "Failed to load book");
-          return;
-        }
-        const b = await res.json();
+
+        const b = res.data;
         setForm({
           title: b.title ?? "",
           writer: b.writer ?? "",
           publisher: b.publisher ?? "",
           price: String(b.price ?? ""),
-          stock: String(b.stock ?? ""),
-          genreId: b.genre?.id ?? b.genreId ?? "",
+          // dukung field stock / stock_quantity
+          stock: String(b.stock ?? b.stock_quantity ?? ""),
+          // dukung genre: {id,name} / genreId
+          genreId: b.genre?.id ?? b.genreId ?? b.genre_id ?? "",
           isbn: b.isbn ?? "",
           description: b.description ?? "",
           publication_year: b.publication_year ? String(b.publication_year) : "",
           condition: b.condition ?? "",
         });
-      } catch {
-        setErr("Failed to load book");
+      } catch (e: any) {
+        setErr(e?.response?.status === 404 ? "Book not found" : "Failed to load book");
       } finally {
         setLoading(false);
       }
     })();
   }, [id]);
 
-  // Ambil daftar genre
+  // Ambil daftar genre (fallback /genres → /genre)
   useEffect(() => {
     (async () => {
       try {
         setLoadingGenres(true);
-        const res = await fetch(`${API}/genres`, { headers: authHeaders() });
-        if (!res.ok) throw new Error();
-        const data = await res.json();
-        const mapped: Genre[] = (Array.isArray(data) ? data : []).map((g: any) => ({
-          id: String(g.id ?? g.genreId ?? ""),
+        let res = await axios.get(`${API}/genres`, { headers: authHeaders() }).catch(async () => {
+          // fallback ke /genre (singular) kalau backend kamu pakai itu
+          return await axios.get(`${API}/genre`, { headers: authHeaders() });
+        });
+
+        const data = Array.isArray(res.data) ? res.data : res.data?.data ?? [];
+        const mapped: Genre[] = data.map((g: any) => ({
+          id: String(g.id ?? g.genreId ?? g.genre_id ?? ""),
           name: String(g.name ?? g.genreName ?? "-"),
         }));
         setGenres(mapped);
       } catch {
-        // optional fallback kalau /genres belum siap
+        // fallback sederhana biar form tetap bisa dipakai
         setGenres([
           { id: "b34b1576-9613-4461-84e1-cbeea61df1db", name: "Technology" },
-          { id: "11111111-1111-1111-1111-111111111111", name: "Fiction" },
-          { id: "22222222-2222-2222-2222-222222222222", name: "History" },
+          { id: "feb6bbf0-bf33-426f-8eda-f15468d13f0e", name: "Fiction" },
+          { id: "670eee99-edf7-4711-921f-1d2e5b82d2b2", name: "History" },
         ]);
       } finally {
         setLoadingGenres(false);
@@ -109,7 +113,7 @@ export default function EditBook() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // validasi minimal
+    // Validasi minimal
     if (!form.title.trim() || !form.writer.trim()) {
       alert("Title & Writer wajib diisi.");
       return;
@@ -121,6 +125,7 @@ export default function EditBook() {
 
     const priceNum = Number(form.price);
     const stockNum = Number(form.stock);
+
     if (isNaN(priceNum) || priceNum < 0) {
       alert("Harga tidak boleh kosong atau negatif!");
       return;
@@ -130,13 +135,16 @@ export default function EditBook() {
       return;
     }
 
+    // Payload: kirim keduanya (camelCase & snake_case) biar kompatibel sama backend kamu
     const payload = {
       title: form.title,
       writer: form.writer,
       publisher: form.publisher || undefined,
       price: priceNum,
-      stock: stockNum,
-      genreId: form.genreId, // kirim UUID genre
+      stock: stockNum,                 // camelCase
+      stock_quantity: stockNum,        // snake_case (kalau backend minta ini)
+      genreId: form.genreId,           // camelCase
+      genre_id: form.genreId,          // snake_case
       isbn: form.isbn || undefined,
       description: form.description || undefined,
       publication_year: form.publication_year ? Number(form.publication_year) : undefined,
@@ -145,20 +153,16 @@ export default function EditBook() {
 
     try {
       setSubmitting(true);
-      const res = await fetch(`${API}/books/${id}`, {
-        method: "PATCH",
-        headers: authHeaders(),
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const msg = await res.text().catch(() => "");
-        alert("Gagal update buku.\n" + msg);
-        return;
-      }
+      await axios.patch(`${API}/books/${id}`, payload, { headers: authHeaders() });
       alert("Buku diperbarui.");
       navigate(`/books/${id}`);
-    } catch {
-      alert("Terjadi kesalahan saat update buku.");
+    } catch (e: any) {
+      const msg =
+        e?.response?.data?.message ||
+        e?.response?.data?.error ||
+        e?.message ||
+        "Gagal update buku.";
+      alert(msg);
     } finally {
       setSubmitting(false);
     }

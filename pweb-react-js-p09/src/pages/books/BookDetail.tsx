@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import axios from "axios";
 
 type BookDetail = {
   id: number;
@@ -30,23 +31,19 @@ export default function BookDetail() {
       try {
         setLoading(true);
         setErr(null);
-        const res = await fetch(`${API}/books/${id}`, {
+
+        const res = await axios.get(`${API}/books/${id}`, {
           headers: { Authorization: `Bearer ${getToken()}` },
         });
-        if (!res.ok) {
-          setBook(null);
-          setErr(res.status === 404 ? "Book not found" : "Failed to load book");
-          return;
-        }
-        const b = await res.json();
 
+        const b = res.data;
         const mapped: BookDetail = {
           id: Number(b.id),
           title: String(b.title ?? ""),
           writer: String(b.writer ?? ""),
           publisher: b.publisher ?? undefined,
           price: Number(b.price ?? 0),
-          stock: Number(b.stock ?? 0),
+          stock: Number(b.stock ?? b.stock_quantity ?? 0),
           genreName: String(b.genre?.name ?? b.genreName ?? "-"),
           isbn: b.isbn ?? undefined,
           description: b.description ?? undefined,
@@ -56,8 +53,9 @@ export default function BookDetail() {
         };
 
         setBook(mapped);
-      } catch {
-        setErr("Failed to load book");
+      } catch (e: any) {
+        if (e?.response?.status === 404) setErr("Book not found");
+        else setErr(e?.response?.data?.message || "Failed to load book");
         setBook(null);
       } finally {
         setLoading(false);
@@ -97,7 +95,7 @@ export default function BookDetail() {
         <h1 className="page-title">{book.title}</h1>
         <div style={{ display: "flex", gap: 8 }}>
           <Link to="/books" className="btn btn-outline">← Back</Link>
-          {/* aktifkan kalau sudah ada halaman edit */}
+          {/* aktifkan kalau sudah punya halaman edit */}
           {/* <Link to={`/books/${book.id}/edit`} className="btn btn-primary">Edit</Link> */}
         </div>
       </header>

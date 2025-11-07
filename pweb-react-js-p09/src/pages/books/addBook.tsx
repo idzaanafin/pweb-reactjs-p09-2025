@@ -1,14 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
 
 type Genre = { id: string; name: string };
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8080";
 const getToken = () => localStorage.getItem("token") || "";
-const authHeaders = () => ({
-  "Content-Type": "application/json",
-  Authorization: `Bearer ${getToken()}`,
-});
 
 export default function AddBook() {
   const navigate = useNavigate();
@@ -23,28 +20,32 @@ export default function AddBook() {
     publisher: "",
     price: "",
     stock: "",
-    genreId: "", // pakai UUID genre
+    genreId: "",
     isbn: "",
     description: "",
     publication_year: "",
-    condition: "", // "new" | "used" | ""
+    condition: "",
   });
 
-  // Ambil daftar genre (sekali saat mount)
+  // Ambil daftar genre
   useEffect(() => {
-    (async () => {
+    const fetchGenres = async () => {
       try {
         setLoadingGenres(true);
-        const res = await fetch(`${API}/genres`, { headers: authHeaders() });
-        if (!res.ok) throw new Error("Gagal memuat genres");
-        const data = await res.json();
+        const token = getToken();
+        const res = await axios.get(`${API}/genres`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const data = res.data;
         const mapped: Genre[] = (Array.isArray(data) ? data : []).map((g: any) => ({
           id: String(g.id ?? g.genreId ?? ""),
           name: String(g.name ?? g.genreName ?? "-"),
         }));
         setGenres(mapped);
-      } catch {
-        // fallback simpel kalau endpoint genre belum siap
+      } catch (err) {
+        console.error("⚠️ Gagal fetch genres:", err);
+        // fallback
         setGenres([
           { id: "b34b1576-9613-4461-84e1-cbeea61df1db", name: "Technology" },
           { id: "11111111-1111-1111-1111-111111111111", name: "Fiction" },
@@ -53,13 +54,15 @@ export default function AddBook() {
       } finally {
         setLoadingGenres(false);
       }
-    })();
+    };
+
+    fetchGenres();
   }, []);
 
+  // Submit form
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // validasi minimal
     if (!form.title.trim() || !form.writer.trim()) {
       alert("Title & Writer wajib diisi.");
       return;
@@ -81,36 +84,39 @@ export default function AddBook() {
       return;
     }
 
-    // payload sesuai API
     const payload = {
       title: form.title,
       writer: form.writer,
       publisher: form.publisher || undefined,
       price: priceNum,
-      stock: stockNum,
-      genreId: form.genreId, // ← kirim UUID genre
+      stock_quantity: stockNum, // ⚠️ sesuaikan dengan backend kamu
+      genre_id: form.genreId,
       isbn: form.isbn || undefined,
       description: form.description || undefined,
-      publication_year: form.publication_year ? Number(form.publication_year) : undefined,
+      publication_year: form.publication_year
+        ? Number(form.publication_year)
+        : undefined,
       condition: form.condition || undefined,
     };
 
     try {
       setSubmitting(true);
-      const res = await fetch(`${API}/books`, {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify(payload),
+      const token = getToken();
+      await axios.post(`${API}/books`, payload, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
       });
-      if (!res.ok) {
-        const msg = await res.text().catch(() => "");
-        alert("Gagal menambahkan buku.\n" + msg);
-        return;
-      }
-      alert("Buku ditambahkan");
+      alert("✅ Buku berhasil ditambahkan!");
       navigate("/books");
-    } catch {
-      alert("Terjadi kesalahan saat menyimpan buku.");
+    } catch (err: any) {
+      console.error("❌ Gagal menambahkan buku:", err);
+      const msg =
+        err.response?.data?.message ||
+        err.message ||
+        "Terjadi kesalahan saat menyimpan buku.";
+      alert(msg);
     } finally {
       setSubmitting(false);
     }
@@ -120,10 +126,16 @@ export default function AddBook() {
     <div className="container">
       <header className="toolbar">
         <h1 className="page-title">Add Book</h1>
-        <Link to="/books" className="btn btn-outline">← Back</Link>
+        <Link to="/books" className="btn btn-outline">
+          ← Back
+        </Link>
       </header>
 
-      <form onSubmit={onSubmit} className="card pad" style={{ display: "grid", gap: 12 }}>
+      <form
+        onSubmit={onSubmit}
+        className="card pad"
+        style={{ display: "grid", gap: 12 }}
+      >
         <Input label="Title *" value={form.title} onChange={(v) => setForm({ ...form, title: v })} />
         <Input label="Writer *" value={form.writer} onChange={(v) => setForm({ ...form, writer: v })} />
         <Input label="Publisher" value={form.publisher} onChange={(v) => setForm({ ...form, publisher: v })} />
@@ -144,7 +156,9 @@ export default function AddBook() {
             >
               <option value="">{loadingGenres ? "Loading..." : "-"}</option>
               {genres.map((g) => (
-                <option key={g.id} value={g.id}>{g.name}</option>
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
               ))}
             </select>
           </div>
@@ -182,8 +196,14 @@ export default function AddBook() {
         </div>
 
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 6 }}>
-          <Link to="/books" className="btn btn-outline">Cancel</Link>
-          <button type="submit" className="btn btn-primary" disabled={submitting || loadingGenres}>
+          <Link to="/books" className="btn btn-outline">
+            Cancel
+          </Link>
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={submitting || loadingGenres}
+          >
             {submitting ? "Saving..." : "Save"}
           </button>
         </div>
@@ -193,7 +213,10 @@ export default function AddBook() {
 }
 
 function Input({
-  label, value, onChange, type = "text",
+  label,
+  value,
+  onChange,
+  type = "text",
 }: {
   label: string;
   value: string;

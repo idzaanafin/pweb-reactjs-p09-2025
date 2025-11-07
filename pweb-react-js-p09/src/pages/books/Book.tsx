@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import axios from "axios";
 
 type Genre = { id: string; name: string };
 type Book = {
@@ -8,17 +9,13 @@ type Book = {
   writer: string;
   price: number;
   stock: number;
-  genre: Genre;              // pastikan selalu objek {id,name}
+  genre: Genre;              // { id, name }
   publish_date: string;
   condition?: string;
 };
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8080";
 const getToken = () => localStorage.getItem("token") || "";
-const authHeaders = () => ({
-  "Content-Type": "application/json",
-  Authorization: `Bearer ${getToken()}`,
-});
 
 export default function BooksList() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -29,7 +26,7 @@ export default function BooksList() {
   const [err, setErr] = useState<string | null>(null);
 
   const q = searchParams.get("q") || "";
-  const genreId = searchParams.get("genreId") || ""; // pakai UUID
+  const genreId = searchParams.get("genreId") || "";
   const condition = searchParams.get("condition") || "";
   const sortBy = (searchParams.get("sortBy") as "title" | "publish_date") || "title";
   const order = (searchParams.get("order") as "asc" | "desc") || "asc";
@@ -43,20 +40,21 @@ export default function BooksList() {
     setSearchParams(next, { replace: true });
   };
 
-  // === Load genres once ===
+  // === Load genres once (axios) ===
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${API}/genres`, { headers: authHeaders() });
-        if (!res.ok) throw new Error("Gagal memuat genres");
-        const data = await res.json();
-        const mapped: Genre[] = (Array.isArray(data) ? data : []).map((g: any) => ({
+        const res = await axios.get(`${API}/genre`, {
+          headers: { Authorization: `Bearer ${getToken()}` },
+        });
+        const data = Array.isArray(res.data) ? res.data : [];
+        const mapped: Genre[] = data.map((g: any) => ({
           id: String(g.id ?? g.genreId ?? ""),
           name: String(g.name ?? g.genreName ?? "-"),
         }));
         setGenres(mapped);
-      } catch {
-        // fallback opsional kalau API genre belum ada
+      } catch (e) {
+        // fallback opsional
         setGenres([
           { id: "b34b1576-9613-4461-84e1-cbeea61df1db", name: "Technology" },
           { id: "11111111-1111-1111-1111-111111111111", name: "Fiction" },
@@ -66,23 +64,24 @@ export default function BooksList() {
     })();
   }, []);
 
-  // === Load books every time genreId changes (switch endpoint) ===
+  // === Load books when genreId changes (axios) ===
   const loadBooks = async () => {
     try {
       setLoading(true);
       setErr(null);
 
       const url = genreId ? `${API}/books/genre/${genreId}` : `${API}/books`;
-      const res = await fetch(url, { headers: authHeaders() });
-      if (!res.ok) throw new Error("Gagal memuat books");
+      const res = await axios.get(url, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
 
-      const data = await res.json();
-      const mapped: Book[] = (Array.isArray(data) ? data : []).map((b: any) => ({
+      const data = Array.isArray(res.data) ? res.data : [];
+      const mapped: Book[] = data.map((b: any) => ({
         id: Number(b.id),
         title: String(b.title ?? ""),
         writer: String(b.writer ?? ""),
         price: Number(b.price ?? 0),
-        stock: Number(b.stock ?? 0),
+        stock: Number(b.stock ?? b.stock_quantity ?? 0),
         genre: b.genre
           ? { id: String(b.genre.id ?? b.genreId ?? ""), name: String(b.genre.name ?? b.genreName ?? "-") }
           : { id: String(b.genreId ?? ""), name: String(b.genreName ?? "-") },
@@ -92,7 +91,7 @@ export default function BooksList() {
 
       setBooks(mapped);
     } catch (e: any) {
-      setErr(e?.message || "Error");
+      setErr(e?.response?.data?.message || e?.message || "Error");
     } finally {
       setLoading(false);
     }
@@ -103,7 +102,7 @@ export default function BooksList() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [genreId]);
 
-  // === FE filter/sort (tetap seperti sebelumnya) ===
+  // === FE filter/sort ===
   const filtered = useMemo(() => {
     let arr = [...books];
     if (q) {
@@ -129,19 +128,18 @@ export default function BooksList() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
-  // === DELETE to API ===
+  // === DELETE (axios) ===
   const onDelete = async (id: number) => {
     if (!confirm("Yakin hapus buku ini?")) return;
-    const res = await fetch(`${API}/books/${id}`, {
-      method: "DELETE",
-      headers: authHeaders(),
-    });
-    if (!res.ok) {
-      alert("Gagal hapus buku");
-      return;
+    try {
+      await axios.delete(`${API}/books/${id}`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      await loadBooks();
+      alert("Buku dihapus");
+    } catch (e: any) {
+      alert(e?.response?.data?.message || "Gagal hapus buku");
     }
-    await loadBooks();
-    alert("Buku dihapus");
   };
 
   return (
@@ -162,7 +160,6 @@ export default function BooksList() {
           onChange={(e) => setParam("q", e.target.value)}
         />
 
-        {/* pakai UUID genre */}
         <select
           className="select"
           value={genreId}
@@ -232,18 +229,10 @@ export default function BooksList() {
                     <td>{b.stock}</td>
                     <td>{b.publish_date}</td>
                     <td style={{ textAlign: "right", display: "flex", justifyContent: "flex-end", gap: 8 }}>
-                      <Link
-                        to={`/books/${b.id}/edit`}
-                        className="btn btn-outline"
-                        aria-label={`Edit ${b.title}`}
-                      >
+                      <Link to={`/books/${b.id}/edit`} className="btn btn-outline" aria-label={`Edit ${b.title}`}>
                         Edit
                       </Link>
-                      <button
-                        onClick={() => onDelete(b.id)}
-                        className="btn btn-danger"
-                        aria-label={`Delete ${b.title}`}
-                      >
+                      <button onClick={() => onDelete(b.id)} className="btn btn-danger" aria-label={`Delete ${b.title}`}>
                         Delete
                       </button>
                     </td>
