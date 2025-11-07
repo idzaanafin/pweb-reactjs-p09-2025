@@ -1,7 +1,20 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 type Genre = { id: string; name: string };
+
+type FormState = {
+  title: string;
+  writer: string;
+  publisher: string;
+  price: string;
+  stock: string;
+  genreId: string;       // UUID genre
+  isbn: string;
+  description: string;
+  publication_year: string;
+  condition: string;     // "new" | "used" | ""
+};
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8080";
 const getToken = () => localStorage.getItem("token") || "";
@@ -10,33 +23,70 @@ const authHeaders = () => ({
   Authorization: `Bearer ${getToken()}`,
 });
 
-export default function AddBook() {
+export default function EditBook() {
+  const { id } = useParams();
   const navigate = useNavigate();
 
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [genres, setGenres] = useState<Genre[]>([]);
-  const [loadingGenres, setLoadingGenres] = useState<boolean>(true);
-  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [loadingGenres, setLoadingGenres] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<FormState>({
     title: "",
     writer: "",
     publisher: "",
     price: "",
     stock: "",
-    genreId: "", // pakai UUID genre
+    genreId: "",
     isbn: "",
     description: "",
     publication_year: "",
-    condition: "", // "new" | "used" | ""
+    condition: "",
   });
 
-  // Ambil daftar genre (sekali saat mount)
+  // Prefill data buku
+  useEffect(() => {
+    (async () => {
+      try {
+        setLoading(true);
+        setErr(null);
+        const res = await fetch(`${API}/books/${id}`, {
+          headers: { Authorization: `Bearer ${getToken()}` },
+        });
+        if (!res.ok) {
+          setErr(res.status === 404 ? "Book not found" : "Failed to load book");
+          return;
+        }
+        const b = await res.json();
+        setForm({
+          title: b.title ?? "",
+          writer: b.writer ?? "",
+          publisher: b.publisher ?? "",
+          price: String(b.price ?? ""),
+          stock: String(b.stock ?? ""),
+          genreId: b.genre?.id ?? b.genreId ?? "",
+          isbn: b.isbn ?? "",
+          description: b.description ?? "",
+          publication_year: b.publication_year ? String(b.publication_year) : "",
+          condition: b.condition ?? "",
+        });
+      } catch {
+        setErr("Failed to load book");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [id]);
+
+  // Ambil daftar genre
   useEffect(() => {
     (async () => {
       try {
         setLoadingGenres(true);
         const res = await fetch(`${API}/genres`, { headers: authHeaders() });
-        if (!res.ok) throw new Error("Gagal memuat genres");
+        if (!res.ok) throw new Error();
         const data = await res.json();
         const mapped: Genre[] = (Array.isArray(data) ? data : []).map((g: any) => ({
           id: String(g.id ?? g.genreId ?? ""),
@@ -44,7 +94,7 @@ export default function AddBook() {
         }));
         setGenres(mapped);
       } catch {
-        // fallback simpel kalau endpoint genre belum siap
+        // optional fallback kalau /genres belum siap
         setGenres([
           { id: "b34b1576-9613-4461-84e1-cbeea61df1db", name: "Technology" },
           { id: "11111111-1111-1111-1111-111111111111", name: "Fiction" },
@@ -71,24 +121,22 @@ export default function AddBook() {
 
     const priceNum = Number(form.price);
     const stockNum = Number(form.stock);
-
     if (isNaN(priceNum) || priceNum < 0) {
       alert("Harga tidak boleh kosong atau negatif!");
       return;
     }
     if (!Number.isInteger(stockNum) || stockNum < 0) {
-      alert("Stok harus berupa bilangan bulat dan tidak boleh negatif!");
+      alert("Stok harus bilangan bulat dan tidak boleh negatif!");
       return;
     }
 
-    // payload sesuai API
     const payload = {
       title: form.title,
       writer: form.writer,
       publisher: form.publisher || undefined,
       price: priceNum,
       stock: stockNum,
-      genreId: form.genreId, // ← kirim UUID genre
+      genreId: form.genreId, // kirim UUID genre
       isbn: form.isbn || undefined,
       description: form.description || undefined,
       publication_year: form.publication_year ? Number(form.publication_year) : undefined,
@@ -97,30 +145,54 @@ export default function AddBook() {
 
     try {
       setSubmitting(true);
-      const res = await fetch(`${API}/books`, {
-        method: "POST",
+      const res = await fetch(`${API}/books/${id}`, {
+        method: "PATCH",
         headers: authHeaders(),
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const msg = await res.text().catch(() => "");
-        alert("Gagal menambahkan buku.\n" + msg);
+        alert("Gagal update buku.\n" + msg);
         return;
       }
-      alert("Buku ditambahkan");
-      navigate("/books");
+      alert("Buku diperbarui.");
+      navigate(`/books/${id}`);
     } catch {
-      alert("Terjadi kesalahan saat menyimpan buku.");
+      alert("Terjadi kesalahan saat update buku.");
     } finally {
       setSubmitting(false);
     }
   };
 
+  if (loading) {
+    return (
+      <div className="container">
+        <header className="toolbar">
+          <h1 className="page-title">Edit Book</h1>
+          <Link to={`/books/${id}`} className="btn btn-outline">← Back</Link>
+        </header>
+        <div className="card pad" style={{ marginTop: 12 }}>Loading...</div>
+      </div>
+    );
+  }
+
+  if (err) {
+    return (
+      <div className="container">
+        <header className="toolbar">
+          <h1 className="page-title">Edit Book</h1>
+          <Link to="/books" className="btn btn-outline">← Back</Link>
+        </header>
+        <div className="card pad" style={{ marginTop: 12 }}>{err}</div>
+      </div>
+    );
+  }
+
   return (
     <div className="container">
       <header className="toolbar">
-        <h1 className="page-title">Add Book</h1>
-        <Link to="/books" className="btn btn-outline">← Back</Link>
+        <h1 className="page-title">Edit Book</h1>
+        <Link to={`/books/${id}`} className="btn btn-outline">← Back</Link>
       </header>
 
       <form onSubmit={onSubmit} className="card pad" style={{ display: "grid", gap: 12 }}>
@@ -182,9 +254,9 @@ export default function AddBook() {
         </div>
 
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 6 }}>
-          <Link to="/books" className="btn btn-outline">Cancel</Link>
+          <Link to={`/books/${id}`} className="btn btn-outline">Cancel</Link>
           <button type="submit" className="btn btn-primary" disabled={submitting || loadingGenres}>
-            {submitting ? "Saving..." : "Save"}
+            {submitting ? "Updating..." : "Update"}
           </button>
         </div>
       </form>

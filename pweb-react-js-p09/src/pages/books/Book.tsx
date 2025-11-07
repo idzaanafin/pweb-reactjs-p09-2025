@@ -1,50 +1,35 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
-// mock data
-type Genre = { id: number; name: string };
+type Genre = { id: string; name: string };
 type Book = {
   id: number;
   title: string;
   writer: string;
   price: number;
   stock: number;
-  genre: Genre;
+  genre: Genre;              // pastikan selalu objek {id,name}
   publish_date: string;
   condition?: string;
 };
 
-const GENRES: Genre[] = [
-  { id: 1, name: "Fiction" },
-  { id: 2, name: "Technology" },
-  { id: 3, name: "History" },
-];
-
-const MOCK_BOOKS: Book[] = [
-  { id: 1,  title: "Clean Code",                writer: "Robert C. Martin",   price: 250000, stock: 12, genre: GENRES[1], publish_date: "2008-08-01", condition: "used" },
-  { id: 2,  title: "Dune",                      writer: "Frank Herbert",      price: 180000, stock: 8,  genre: GENRES[0], publish_date: "1965-06-01", condition: "new" },
-  { id: 3,  title: "Sapiens",                   writer: "Yuval N. Harari",    price: 220000, stock: 5,  genre: GENRES[2], publish_date: "2011-01-01", condition: "new" },
-  { id: 4,  title: "The Pragmatic Programmer",  writer: "Andrew Hunt",        price: 270000, stock: 3,  genre: GENRES[1], publish_date: "1999-10-30", condition: "used" },
-  { id: 5,  title: "Refactoring",               writer: "Martin Fowler",      price: 260000, stock: 7,  genre: GENRES[1], publish_date: "1999-07-08", condition: "used" },
-  { id: 6,  title: "Design Patterns",           writer: "Erich Gamma",        price: 300000, stock: 4,  genre: GENRES[1], publish_date: "1994-10-31", condition: "used" },
-  { id: 7,  title: "Atomic Habits",             writer: "James Clear",        price: 175000, stock: 15, genre: GENRES[2], publish_date: "2018-10-16", condition: "new" },
-  { id: 8,  title: "Deep Work",                 writer: "Cal Newport",        price: 165000, stock: 10, genre: GENRES[2], publish_date: "2016-01-05", condition: "new" },
-  { id: 9,  title: "Foundation",                writer: "Isaac Asimov",       price: 150000, stock: 9,  genre: GENRES[0], publish_date: "1951-06-01", condition: "used" },
-  { id:10,  title: "Neuromancer",               writer: "William Gibson",     price: 155000, stock: 6,  genre: GENRES[0], publish_date: "1984-07-01", condition: "used" },
-  { id:11,  title: "Algorithms",                writer: "Sedgewick & Wayne",  price: 320000, stock: 5,  genre: GENRES[1], publish_date: "2011-04-01", condition: "new" },
-  { id:12,  title: "Introduction to Algorithms",writer: "Cormen et al.",      price: 350000, stock: 2,  genre: GENRES[1], publish_date: "2009-07-31", condition: "used" },
-  { id:13,  title: "Homo Deus",                 writer: "Yuval N. Harari",    price: 230000, stock: 6,  genre: GENRES[2], publish_date: "2015-09-08", condition: "new" },
-  { id:14,  title: "Brave New World",           writer: "Aldous Huxley",      price: 140000, stock: 11, genre: GENRES[0], publish_date: "1932-08-31", condition: "used" },
-  { id:15,  title: "Clean Architecture",        writer: "Robert C. Martin",   price: 280000, stock: 5,  genre: GENRES[1], publish_date: "2017-09-20", condition: "new" },
-];
+const API = import.meta.env.VITE_API_URL || "http://localhost:8080";
+const getToken = () => localStorage.getItem("token") || "";
+const authHeaders = () => ({
+  "Content-Type": "application/json",
+  Authorization: `Bearer ${getToken()}`,
+});
 
 export default function BooksList() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [books, setBooks] = useState<Book[]>(MOCK_BOOKS);
-  const [genres] = useState<Genre[]>(GENRES);
+
+  const [books, setBooks] = useState<Book[]>([]);
+  const [genres, setGenres] = useState<Genre[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [err, setErr] = useState<string | null>(null);
 
   const q = searchParams.get("q") || "";
-  const genre = searchParams.get("genre") || "";
+  const genreId = searchParams.get("genreId") || ""; // pakai UUID
   const condition = searchParams.get("condition") || "";
   const sortBy = (searchParams.get("sortBy") as "title" | "publish_date") || "title";
   const order = (searchParams.get("order") as "asc" | "desc") || "asc";
@@ -53,35 +38,110 @@ export default function BooksList() {
 
   const setParam = (k: string, v: string) => {
     const next = new URLSearchParams(searchParams);
-    if (v) next.set(k, v); else next.delete(k);
+    v ? next.set(k, v) : next.delete(k);
     if (k !== "page") next.set("page", "1");
     setSearchParams(next, { replace: true });
   };
 
+  // === Load genres once ===
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API}/genres`, { headers: authHeaders() });
+        if (!res.ok) throw new Error("Gagal memuat genres");
+        const data = await res.json();
+        const mapped: Genre[] = (Array.isArray(data) ? data : []).map((g: any) => ({
+          id: String(g.id ?? g.genreId ?? ""),
+          name: String(g.name ?? g.genreName ?? "-"),
+        }));
+        setGenres(mapped);
+      } catch {
+        // fallback opsional kalau API genre belum ada
+        setGenres([
+          { id: "b34b1576-9613-4461-84e1-cbeea61df1db", name: "Technology" },
+          { id: "11111111-1111-1111-1111-111111111111", name: "Fiction" },
+          { id: "22222222-2222-2222-2222-222222222222", name: "History" },
+        ]);
+      }
+    })();
+  }, []);
+
+  // === Load books every time genreId changes (switch endpoint) ===
+  const loadBooks = async () => {
+    try {
+      setLoading(true);
+      setErr(null);
+
+      const url = genreId ? `${API}/books/genre/${genreId}` : `${API}/books`;
+      const res = await fetch(url, { headers: authHeaders() });
+      if (!res.ok) throw new Error("Gagal memuat books");
+
+      const data = await res.json();
+      const mapped: Book[] = (Array.isArray(data) ? data : []).map((b: any) => ({
+        id: Number(b.id),
+        title: String(b.title ?? ""),
+        writer: String(b.writer ?? ""),
+        price: Number(b.price ?? 0),
+        stock: Number(b.stock ?? 0),
+        genre: b.genre
+          ? { id: String(b.genre.id ?? b.genreId ?? ""), name: String(b.genre.name ?? b.genreName ?? "-") }
+          : { id: String(b.genreId ?? ""), name: String(b.genreName ?? "-") },
+        publish_date: String(b.publish_date ?? b.publication_date ?? ""),
+        condition: b.condition ?? "",
+      }));
+
+      setBooks(mapped);
+    } catch (e: any) {
+      setErr(e?.message || "Error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadBooks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [genreId]);
+
+  // === FE filter/sort (tetap seperti sebelumnya) ===
   const filtered = useMemo(() => {
     let arr = [...books];
-    if (q) arr = arr.filter(b =>
-      b.title.toLowerCase().includes(q.toLowerCase()) ||
-      b.writer.toLowerCase().includes(q.toLowerCase())
-    );
-    if (genre) arr = arr.filter(b => b.genre.name === genre);
-    if (condition) arr = arr.filter(b => b.condition === condition);
+    if (q) {
+      const ql = q.toLowerCase();
+      arr = arr.filter(
+        (b) => b.title.toLowerCase().includes(ql) || b.writer.toLowerCase().includes(ql)
+      );
+    }
+    if (genreId) arr = arr.filter((b) => (b.genre?.id || "") === genreId);
+    if (condition) arr = arr.filter((b) => (b.condition || "") === condition);
+
     arr.sort((a, b) => {
       const dir = order === "asc" ? 1 : -1;
       if (sortBy === "title") return a.title.localeCompare(b.title) * dir;
-      return (new Date(a.publish_date).getTime() - new Date(b.publish_date).getTime()) * dir;
+      return (
+        (new Date(a.publish_date).getTime() - new Date(b.publish_date).getTime()) *
+        dir
+      );
     });
     return arr;
-  }, [books, q, genre, condition, sortBy, order]);
+  }, [books, q, genreId, condition, sortBy, order]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
-  const onDelete = (id: number) => {
-    if (confirm("Yakin hapus buku ini?")) {
-      setBooks(prev => prev.filter(b => b.id !== id));
-      alert("Buku dihapus (mock)");
+  // === DELETE to API ===
+  const onDelete = async (id: number) => {
+    if (!confirm("Yakin hapus buku ini?")) return;
+    const res = await fetch(`${API}/books/${id}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    });
+    if (!res.ok) {
+      alert("Gagal hapus buku");
+      return;
     }
+    await loadBooks();
+    alert("Buku dihapus");
   };
 
   return (
@@ -94,7 +154,6 @@ export default function BooksList() {
         </div>
       </header>
 
-      {/* Filter bar */}
       <div className="grid filters card pad fade-in" style={{ marginBottom: 14 }}>
         <input
           className="input"
@@ -102,63 +161,124 @@ export default function BooksList() {
           value={q}
           onChange={(e) => setParam("q", e.target.value)}
         />
-        <select className="select" value={genre} onChange={(e) => setParam("genre", e.target.value)}>
+
+        {/* pakai UUID genre */}
+        <select
+          className="select"
+          value={genreId}
+          onChange={(e) => setParam("genreId", e.target.value)}
+        >
           <option value="">All Genres</option>
-          {genres.map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
+          {genres.map((g) => (
+            <option key={g.id} value={g.id}>{g.name}</option>
+          ))}
         </select>
-        <select className="select" value={condition} onChange={(e) => setParam("condition", e.target.value)}>
+
+        <select
+          className="select"
+          value={condition}
+          onChange={(e) => setParam("condition", e.target.value)}
+        >
           <option value="">All Conditions</option>
           <option value="new">New</option>
           <option value="used">Used</option>
         </select>
-        <select className="select" value={sortBy} onChange={(e) => setParam("sortBy", e.target.value)}>
+
+        <select
+          className="select"
+          value={sortBy}
+          onChange={(e) => setParam("sortBy", e.target.value)}
+        >
           <option value="title">Title</option>
           <option value="publish_date">Publish Date</option>
         </select>
-        <select className="select" value={order} onChange={(e) => setParam("order", e.target.value)}>
+        <select
+          className="select"
+          value={order}
+          onChange={(e) => setParam("order", e.target.value)}
+        >
           <option value="asc">Asc</option>
           <option value="desc">Desc</option>
         </select>
       </div>
 
-      {/* Table */}
-      <div className="table-wrap fade-in">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Title</th>
-              <th>Writer</th>
-              <th>Genre</th>
-              <th>Price</th>
-              <th>Stock</th>
-              <th>Publish Date</th>
-              <th style={{ textAlign: "right" }}>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginated.map(b => (
-              <tr key={b.id}>
-                <td><Link to={`/books/${b.id}`} className="link">{b.title}</Link></td>
-                <td style={{ whiteSpace: "pre-line" }}>{b.writer}</td>
-                <td><span className="badge">{b.genre.name}</span></td>
-                <td>{Intl.NumberFormat("id-ID").format(b.price)}</td>
-                <td>{b.stock}</td>
-                <td>{b.publish_date}</td>
-                <td style={{ textAlign: "right" }}>
-                  <button onClick={() => onDelete(b.id)} className="btn btn-danger">Delete</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {loading && <div className="card pad">Loading...</div>}
+      {err && !loading && <div className="card pad">Error: {err}</div>}
 
-      {/* Pagination */}
-      <nav className="pagination">
-        <button className="btn btn-outline" disabled={page <= 1} onClick={() => setParam("page", String(page - 1))}>Prev</button>
-        <span>Page {page}/{totalPages}</span>
-        <button className="btn btn-outline" disabled={page >= totalPages} onClick={() => setParam("page", String(page + 1))}>Next</button>
-      </nav>
+      {!loading && !err && (
+        <>
+          <div className="table-wrap fade-in">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Writer</th>
+                  <th>Genre</th>
+                  <th>Price</th>
+                  <th>Stock</th>
+                  <th>Publish Date</th>
+                  <th style={{ textAlign: "right" }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginated.map((b) => (
+                  <tr key={b.id}>
+                    <td>
+                      <Link to={`/books/${b.id}`} className="link">{b.title}</Link>
+                    </td>
+                    <td style={{ whiteSpace: "pre-line" }}>{b.writer}</td>
+                    <td><span className="badge">{b.genre?.name}</span></td>
+                    <td>{Intl.NumberFormat("id-ID").format(b.price)}</td>
+                    <td>{b.stock}</td>
+                    <td>{b.publish_date}</td>
+                    <td style={{ textAlign: "right", display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                      <Link
+                        to={`/books/${b.id}/edit`}
+                        className="btn btn-outline"
+                        aria-label={`Edit ${b.title}`}
+                      >
+                        Edit
+                      </Link>
+                      <button
+                        onClick={() => onDelete(b.id)}
+                        className="btn btn-danger"
+                        aria-label={`Delete ${b.title}`}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {paginated.length === 0 && (
+                  <tr>
+                    <td colSpan={7} style={{ padding: 16, textAlign: "center", color: "#64748b" }}>
+                      No data.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <nav className="pagination">
+            <button
+              className="btn btn-outline"
+              disabled={page <= 1}
+              onClick={() => setParam("page", String(page - 1))}
+            >
+              Prev
+            </button>
+            <span>Page {page}/{totalPages}</span>
+            <button
+              className="btn btn-outline"
+              disabled={page >= totalPages}
+              onClick={() => setParam("page", String(page + 1))}
+            >
+              Next
+            </button>
+          </nav>
+        </>
+      )}
     </div>
   );
 }
