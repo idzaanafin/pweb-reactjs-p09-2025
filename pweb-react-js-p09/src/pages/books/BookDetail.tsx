@@ -3,18 +3,15 @@ import { Link, useParams } from "react-router-dom";
 import axios from "axios";
 
 type BookDetail = {
-  id: number;
+  id: string;
   title: string;
   writer: string;
   publisher?: string;
   price: number;
-  stock: number;
+  stock_quantity: number;
   genreName: string;
-  isbn?: string;
   description?: string;
-  publication_year?: number;
-  condition?: "new" | "used" | "";
-  publish_date?: string;
+  publication_year?: number | null;
 };
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8080";
@@ -36,20 +33,18 @@ export default function BookDetail() {
           headers: { Authorization: `Bearer ${getToken()}` },
         });
 
-        const b = res.data;
+        const b = res.data.data;
+
         const mapped: BookDetail = {
-          id: Number(b.id),
-          title: String(b.title ?? ""),
-          writer: String(b.writer ?? ""),
-          publisher: b.publisher ?? undefined,
-          price: Number(b.price ?? 0),
-          stock: Number(b.stock ?? b.stock_quantity ?? 0),
-          genreName: String(b.genre?.name ?? b.genreName ?? "-"),
-          isbn: b.isbn ?? undefined,
-          description: b.description ?? undefined,
-          publication_year: b.publication_year ?? undefined,
-          condition: (b.condition as "new" | "used") ?? "",
-          publish_date: b.publish_date ?? b.publication_date ?? undefined,
+          id: String(b.id),
+          title: b.title,
+          writer: b.writer,
+          publisher: b.publisher || "-",
+          price: Number(b.price),
+          stock_quantity: Number(b.stock_quantity ?? 0),
+          genreName: b.genre?.name ?? "-",
+          description: b.description ?? "-",
+          publication_year: b.publication_year ?? null,
         };
 
         setBook(mapped);
@@ -95,7 +90,6 @@ export default function BookDetail() {
         <h1 className="page-title">{book.title}</h1>
         <div style={{ display: "flex", gap: 8 }}>
           <Link to="/books" className="btn btn-outline">← Back</Link>
-          {/* aktifkan kalau sudah punya halaman edit */}
           {/* <Link to={`/books/${book.id}/edit`} className="btn btn-primary">Edit</Link> */}
         </div>
       </header>
@@ -105,12 +99,9 @@ export default function BookDetail() {
           <Info label="Writer" value={book.writer} />
           <Info label="Publisher" value={book.publisher || "-"} />
           <Info label="Genre" value={book.genreName} />
-          <Info label="ISBN" value={book.isbn || "-"} />
           <Info label="Publication Year" value={book.publication_year ? String(book.publication_year) : "-"} />
-          <Info label="Condition" value={book.condition || "-"} />
           <Info label="Price" value={`Rp ${Intl.NumberFormat("id-ID").format(book.price)}`} />
-          <Info label="Stock" value={String(book.stock)} />
-          <Info label="Publish Date" value={book.publish_date || "-"} />
+          <Info label="Stock" value={String(book.stock_quantity)} />
         </div>
 
         <div>

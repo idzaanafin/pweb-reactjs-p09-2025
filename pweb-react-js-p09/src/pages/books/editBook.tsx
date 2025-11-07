@@ -9,12 +9,10 @@ type FormState = {
   writer: string;
   publisher: string;
   price: string;
-  stock: string;
-  genreId: string; // UUID genre
-  isbn: string;
+  stock_quantity: string;
+  genre_id: string;
   description: string;
   publication_year: string;
-  condition: string; // "new" | "used" | ""
 };
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8080";
@@ -39,12 +37,10 @@ export default function EditBook() {
     writer: "",
     publisher: "",
     price: "",
-    stock: "",
-    genreId: "",
-    isbn: "",
+    stock_quantity: "",
+    genre_id: "",
     description: "",
     publication_year: "",
-    condition: "",
   });
 
   // Prefill data buku
@@ -54,25 +50,20 @@ export default function EditBook() {
         setLoading(true);
         setErr(null);
 
-        const res = await axios.get(`${API}/books/${id}`, {
-          headers: authHeaders(),
-        });
+        const res = await axios.get(`${API}/books/${id}`, { headers: authHeaders(), withCredentials: true });
+        const b = res.data.data;
 
-        const b = res.data;
         setForm({
           title: b.title ?? "",
           writer: b.writer ?? "",
           publisher: b.publisher ?? "",
           price: String(b.price ?? ""),
-          // dukung field stock / stock_quantity
-          stock: String(b.stock ?? b.stock_quantity ?? ""),
-          // dukung genre: {id,name} / genreId
-          genreId: b.genre?.id ?? b.genreId ?? b.genre_id ?? "",
-          isbn: b.isbn ?? "",
+          stock_quantity: String(b.stock_quantity ?? 0),
+          genre_id: String(b.genre?.id ?? b.genre_id ?? ""),
           description: b.description ?? "",
           publication_year: b.publication_year ? String(b.publication_year) : "",
-          condition: b.condition ?? "",
         });
+
       } catch (e: any) {
         setErr(e?.response?.status === 404 ? "Book not found" : "Failed to load book");
       } finally {
@@ -81,29 +72,22 @@ export default function EditBook() {
     })();
   }, [id]);
 
-  // Ambil daftar genre (fallback /genres → /genre)
+  // Load genres
   useEffect(() => {
     (async () => {
       try {
         setLoadingGenres(true);
-        let res = await axios.get(`${API}/genres`, { headers: authHeaders() }).catch(async () => {
-          // fallback ke /genre (singular) kalau backend kamu pakai itu
-          return await axios.get(`${API}/genre`, { headers: authHeaders() });
-        });
+        const res = await axios.get(`${API}/genre`, { headers: authHeaders(), withCredentials: true });
+        const data = Array.isArray(res.data.data) ? res.data.data : [];
 
-        const data = Array.isArray(res.data) ? res.data : res.data?.data ?? [];
-        const mapped: Genre[] = data.map((g: any) => ({
-          id: String(g.id ?? g.genreId ?? g.genre_id ?? ""),
-          name: String(g.name ?? g.genreName ?? "-"),
-        }));
-        setGenres(mapped);
+        setGenres(
+          data.map((g: any) => ({
+            id: String(g.id),
+            name: String(g.name),
+          }))
+        );
       } catch {
-        // fallback sederhana biar form tetap bisa dipakai
-        setGenres([
-          { id: "b34b1576-9613-4461-84e1-cbeea61df1db", name: "Technology" },
-          { id: "feb6bbf0-bf33-426f-8eda-f15468d13f0e", name: "Fiction" },
-          { id: "670eee99-edf7-4711-921f-1d2e5b82d2b2", name: "History" },
-        ]);
+        setGenres([]);
       } finally {
         setLoadingGenres(false);
       }
@@ -113,84 +97,57 @@ export default function EditBook() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validasi minimal
     if (!form.title.trim() || !form.writer.trim()) {
       alert("Title & Writer wajib diisi.");
       return;
     }
-    if (!form.genreId) {
+    if (!form.genre_id) {
       alert("Genre wajib dipilih.");
       return;
     }
 
     const priceNum = Number(form.price);
-    const stockNum = Number(form.stock);
+    const stockNum = Number(form.stock_quantity);
 
     if (isNaN(priceNum) || priceNum < 0) {
       alert("Harga tidak boleh kosong atau negatif!");
       return;
     }
     if (!Number.isInteger(stockNum) || stockNum < 0) {
-      alert("Stok harus bilangan bulat dan tidak boleh negatif!");
+      alert("Stock harus bilangan bulat dan tidak boleh negatif!");
       return;
     }
 
-    // Payload: kirim keduanya (camelCase & snake_case) biar kompatibel sama backend kamu
     const payload = {
       title: form.title,
       writer: form.writer,
       publisher: form.publisher || undefined,
       price: priceNum,
-      stock: stockNum,                 // camelCase
-      stock_quantity: stockNum,        // snake_case (kalau backend minta ini)
-      genreId: form.genreId,           // camelCase
-      genre_id: form.genreId,          // snake_case
-      isbn: form.isbn || undefined,
+      stock_quantity: stockNum,
+      genre_id: form.genre_id,
       description: form.description || undefined,
       publication_year: form.publication_year ? Number(form.publication_year) : undefined,
-      condition: form.condition || undefined,
     };
 
     try {
       setSubmitting(true);
       await axios.patch(`${API}/books/${id}`, payload, { headers: authHeaders() });
-      alert("Buku diperbarui.");
+      alert("✅ Buku berhasil diperbarui!");
       navigate(`/books/${id}`);
     } catch (e: any) {
-      const msg =
-        e?.response?.data?.message ||
-        e?.response?.data?.error ||
-        e?.message ||
-        "Gagal update buku.";
-      alert(msg);
+      alert(e?.response?.data?.message || "Gagal update buku.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="container">
-        <header className="toolbar">
-          <h1 className="page-title">Edit Book</h1>
-          <Link to={`/books/${id}`} className="btn btn-outline">← Back</Link>
-        </header>
-        <div className="card pad" style={{ marginTop: 12 }}>Loading...</div>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="container"><div className="card pad mt-4">Loading...</div></div>
+  );
 
-  if (err) {
-    return (
-      <div className="container">
-        <header className="toolbar">
-          <h1 className="page-title">Edit Book</h1>
-          <Link to="/books" className="btn btn-outline">← Back</Link>
-        </header>
-        <div className="card pad" style={{ marginTop: 12 }}>{err}</div>
-      </div>
-    );
-  }
+  if (err) return (
+    <div className="container"><div className="card pad mt-4">{err}</div></div>
+  );
 
   return (
     <div className="container">
@@ -206,40 +163,24 @@ export default function EditBook() {
 
         <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <Input label="Price" type="number" value={form.price} onChange={(v) => setForm({ ...form, price: v })} />
-          <Input label="Stock" type="number" value={form.stock} onChange={(v) => setForm({ ...form, stock: v })} />
+          <Input label="Stock" type="number" value={form.stock_quantity} onChange={(v) => setForm({ ...form, stock_quantity: v })} />
         </div>
 
-        <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <div style={{ display: "grid", gap: 6 }}>
-            <label className="subtle">Genre</label>
-            <select
-              className="select"
-              value={form.genreId}
-              onChange={(e) => setForm({ ...form, genreId: e.target.value })}
-              disabled={loadingGenres}
-            >
-              <option value="">{loadingGenres ? "Loading..." : "-"}</option>
-              {genres.map((g) => (
-                <option key={g.id} value={g.id}>{g.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div style={{ display: "grid", gap: 6 }}>
-            <label className="subtle">Condition</label>
-            <select
-              className="select"
-              value={form.condition}
-              onChange={(e) => setForm({ ...form, condition: e.target.value })}
-            >
-              <option value="">-</option>
-              <option value="new">New</option>
-              <option value="used">Used</option>
-            </select>
-          </div>
+        <div style={{ display: "grid", gap: 6 }}>
+          <label className="subtle">Genre</label>
+          <select
+            className="select"
+            value={form.genre_id}
+            onChange={(e) => setForm({ ...form, genre_id: e.target.value })}
+            disabled={loadingGenres}
+          >
+            <option value="">-</option>
+            {genres.map((g) => (
+              <option key={g.id} value={g.id}>{g.name}</option>
+            ))}
+          </select>
         </div>
 
-        <Input label="ISBN" value={form.isbn} onChange={(v) => setForm({ ...form, isbn: v })} />
         <Input
           label="Publication Year"
           type="number"
@@ -257,7 +198,7 @@ export default function EditBook() {
           />
         </div>
 
-        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 6 }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
           <Link to={`/books/${id}`} className="btn btn-outline">Cancel</Link>
           <button type="submit" className="btn btn-primary" disabled={submitting || loadingGenres}>
             {submitting ? "Updating..." : "Update"}
@@ -268,23 +209,11 @@ export default function EditBook() {
   );
 }
 
-function Input({
-  label, value, onChange, type = "text",
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  type?: string;
-}) {
+function Input({ label, value, onChange, type = "text" }: any) {
   return (
     <div style={{ display: "grid", gap: 6 }}>
       <label className="subtle">{label}</label>
-      <input
-        className="input"
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-      />
+      <input className="input" type={type} value={value} onChange={(e) => onChange(e.target.value)} />
     </div>
   );
 }
