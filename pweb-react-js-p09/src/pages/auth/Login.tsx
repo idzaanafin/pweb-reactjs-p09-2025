@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { FormEvent } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
@@ -9,9 +10,9 @@ export default function Login() {
   const [loading, setLoading] = useState(false); 
 
   const navigate = useNavigate();
-  const API = import.meta.env.VITE_API_URL;
+  const API = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setMessage("");
 
@@ -31,8 +32,12 @@ export default function Login() {
           navigate("/books");
         }, 800);
       }
-    } catch (err) {
-      setMessage(err.response?.data?.message || "Terjadi kesalahan, silakan coba lagi.");
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        setMessage(err.response?.data?.message || err.message || "Terjadi kesalahan, silakan coba lagi.");
+      } else {
+        setMessage((err as Error)?.message || "Terjadi kesalahan, silakan coba lagi.");
+      }
     } finally {
       setLoading(false); 
     }

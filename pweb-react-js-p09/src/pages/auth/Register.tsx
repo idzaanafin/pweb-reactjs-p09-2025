@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { FormEvent } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
@@ -17,10 +18,10 @@ export default function Register() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const API = import.meta.env.VITE_API_URL;
+  const API = import.meta.env.VITE_API_URL || "http://localhost:8080";
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setMessage("");
 
@@ -46,8 +47,12 @@ export default function Register() {
       
       setTimeout(() => navigate("/login"), 1000);
 
-    } catch (err) {
-      setMessage(err.response?.data?.message || "Terjadi kesalahan, silakan coba lagi.");
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        setMessage(err.response?.data?.message || err.message || "Terjadi kesalahan, silakan coba lagi.");
+      } else {
+        setMessage((err as Error)?.message || "Terjadi kesalahan, silakan coba lagi.");
+      }
     } finally {
       setLoading(false);
     }
