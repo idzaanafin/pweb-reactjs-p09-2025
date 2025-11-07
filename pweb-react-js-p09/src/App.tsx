@@ -31,13 +31,21 @@ export default function App() {
             <Register />
             </AuthRedirect> 
           } />
-      
-    <Route path="/" element={<MainLayout />}>
+        
+      <Route
+      path="/"
+      element={
+        <ProtectedRoute>
+          <MainLayout />
+        </ProtectedRoute>
+      }
+    >
       <Route index element={<Home />} />
       <Route path="books" element={<Books />} />
+      <Route path="books/add" element={<AddBook />} />
       <Route path="books/:id" element={<BookDetail />} />
       <Route path="books/:id/edit" element={<EditBook />} />
-      <Route path="books/add" element={<AddBook />} />
+
       <Route path="transactions" element={<Transactions />} />
       <Route path="transactions/:id" element={<TransactionDetail />} />
     </Route>
