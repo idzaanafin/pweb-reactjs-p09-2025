@@ -5,34 +5,36 @@ import { useNavigate } from "react-router-dom";
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [message, setMessage] = useState(""); // <- buat pesan
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false); 
 
   const navigate = useNavigate();
   const API = import.meta.env.VITE_API_URL;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setMessage(""); // reset message dulu
+    setMessage("");
 
     try {
+      setLoading(true); 
+
       const res = await axios.post(`${API}/auth/login`, {
         email,
         password,
       });
 
-      // jika berhasil
-      if (res.data.token) {
-        localStorage.setItem("token", res.data.token);
-        setMessage("✅ Login berhasil!");
+      if (res.data.data.token) {
+        localStorage.setItem("token", res.data.data.token);
+        setMessage(res.data.message);
 
-        // opsional redirect setelah 1 detik
         setTimeout(() => {
           navigate("/books");
-        }, 1000);
+        }, 800);
       }
     } catch (err) {
-      console.error(err.response?.data || err.message);
-      setMessage("❌ Login gagal. Periksa email & password.");
+      setMessage(err.response?.data?.message || "Terjadi kesalahan, silakan coba lagi.");
+    } finally {
+      setLoading(false); 
     }
   };
 
@@ -45,7 +47,7 @@ export default function Login() {
         {message && (
           <div
             className={`p-3 mb-4 rounded text-sm ${
-              message.startsWith("✅")
+              message.toLowerCase().includes("berhasil")
                 ? "bg-green-100 text-green-700"
                 : "bg-red-100 text-red-700"
             }`}
@@ -63,6 +65,7 @@ export default function Login() {
               placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              disabled={loading}
               required
             />
           </div>
@@ -75,15 +78,21 @@ export default function Login() {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
               required
             />
           </div>
 
           <button
             type="submit"
-            className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition"
+            disabled={loading}
+            className={`w-full py-2 rounded-lg font-medium transition ${
+              loading
+                ? "bg-gray-400 text-black cursor-not-allowed"
+                : "bg-black text-black hover:bg-gray-800"
+            }`}
           >
-            Log In
+            {loading ? "Loading..." : "Log In"}
           </button>
         </form>
 
