@@ -26,6 +26,7 @@ export default function Login() {
 
       if (res.data.data.token) {
         localStorage.setItem("token", res.data.data.token);
+        localStorage.setItem("user_id", res.data.data.user.id);
         setMessage(res.data.message);
 
         setTimeout(() => {

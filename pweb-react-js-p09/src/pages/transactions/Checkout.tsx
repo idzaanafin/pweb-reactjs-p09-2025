@@ -25,9 +25,9 @@ export default function Checkout() {
   const [cart, setCart] = useState<{ [id: string]: number }>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const token = getToken();
 
+  // Fetch daftar buku
   useEffect(() => {
     if (!token) {
       navigate("/login");
@@ -50,7 +50,6 @@ export default function Checkout() {
         setLoading(false);
       }
     };
-
     fetchBooks();
   }, [token, navigate]);
 
@@ -63,45 +62,63 @@ export default function Checkout() {
     return sum + book.price * qty;
   }, 0);
 
+  // === HANDLE CHECKOUT ===
   const handleCheckout = async () => {
-    if (subtotal <= 0) {
-      alert("Pilih minimal 1 buku sebelum checkout!");
-      return;
-    }
+  if (subtotal <= 0) {
+    alert("Pilih minimal 1 buku sebelum checkout!");
+    return;
+  }
 
-    try {
-      setLoading(true);
-      const order_items = Object.entries(cart)
-        .filter(([_, qty]) => qty > 0)
-        .map(([book_id, quantity]) => ({ book_id, quantity }));
+  try {
+    setLoading(true);
+    const user_id = localStorage.getItem("user_id");
+    console.log("🧍 user_id:", user_id); // tambahkan log ini
 
-      const res = await axios.post(
-        `${API}/transactions`,
-        { order_items },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+    const items = Object.entries(cart)
+      .filter(([_, qty]) => qty > 0)
+      .map(([book_id, quantity]) => ({
+        book_id,
+        quantity,
+      }));
 
-      alert("Transaksi berhasil dibuat!");
-      navigate(`/transactions/${res.data.data.id}`);
-    } catch (err) {
-      console.error(err);
-      alert("Gagal membuat transaksi.");
-    } finally {
-      setLoading(false);
-    }
-  };
+    console.log("📦 Data dikirim ke backend:", { user_id, items });
+
+    const res = await axios.post(
+      `${API}/transactions`,
+      { user_id, items },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    alert("Transaksi berhasil dibuat!");
+    navigate(`/transactions/${res.data.data.order.id}`);
+  } catch (err: any) {
+    console.error("Checkout error:", err.response?.data || err.message);
+    alert(
+      `Gagal membuat transaksi: ${
+        err.response?.data?.message || "Terjadi kesalahan."
+      }`
+    );
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <div className="container">
       <header className="toolbar">
         <h1 className="page-title">Checkout Buku</h1>
         <div style={{ display: "flex", gap: 12 }}>
-          <Link to="/transactions" className="btn btn-outline">← Back to Transactions</Link>
+          <Link to="/transactions" className="btn btn-outline">
+            ← Back to Transactions
+          </Link>
         </div>
       </header>
 
       {loading && <div className="card pad">Memuat...</div>}
-      {error && !loading && <div className="card pad text-red-600">{error}</div>}
+      {error && !loading && (
+        <div className="card pad text-red-600">{error}</div>
+      )}
 
       {!loading && !error && (
         <>
