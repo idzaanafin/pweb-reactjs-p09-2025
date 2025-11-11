@@ -159,7 +159,7 @@ export default function TransactionList() {
                   return (
                     <tr key={t.id}>
                       <td>{t.id}</td>
-                      <td>{t.user.username}</td>
+                      <td>{t.user.email}</td>
                       <td>{new Date(t.created_at).toLocaleString()}</td>
                       <td>{formatRupiah(avgPrice)}</td>
                       <td>{formatRupiah(t.totalAmount || 0)}</td>

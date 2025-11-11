@@ -82,7 +82,7 @@ export default function TransactionDetail() {
 
       <div className="card pad fade-in">
         <p><strong>ID Transaksi:</strong> {transaction.id}</p>
-        <p><strong>Nama Pembeli:</strong> {transaction.user.username}</p>
+        <p><strong>Nama Pembeli:</strong> {transaction.user.email}</p>
         <p><strong>Tanggal:</strong> {new Date(transaction.created_at).toLocaleString()}</p>
 
         {transaction.order_items.length > 0 && (
